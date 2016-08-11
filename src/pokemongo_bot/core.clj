@@ -58,13 +58,19 @@
     (-> (dosync @api/pokemon-points) .getPokestops)
     []))
 
+(defn loot-pokestop [pokestop]
+  (try
+    (.loot pokestop)
+    (catch com.pokegoapi.exceptions.AsyncPokemonGoException e
+      (println "ポケストップから戦利品を取得しようとして同期エラー"))))
+
 (defn search-spawnpoints []
   (if (dosync @api/pokemon-points)
     (-> (dosync @api/pokemon-points) .getSpawnPoints)
     []))
 
 (defn distance-with-center [center current point]
-  (+ (-> (coord/distance current point) (* 10))
+  (+ (-> (coord/distance current point) (* 15))
      (-> (coord/distance center point))))
 
 (defn next-point [center routes]
@@ -97,7 +103,7 @@
       (if next
         (do (println (str "next -> " (coord/coord-format next)))
             (walking next 1)
-            (.loot next)
+            (loot-pokestop next)
             (recur (point-pool next routes)))
         (do
           (Thread/sleep 3000)
@@ -114,8 +120,8 @@
   (walking-dead
    (auth/->GoogleAccount "Email" "Password")
    ;; (coord/->Coord 35.65955 139.699068) ;; Shibuya 109
-   (coord/->Coord 35.6267108 139.8850779) ;; TDS
-   ;; (coord/->Coord 35.6328964 139.8803943) ;; TDL
+   ;; (coord/->Coord 35.6267108 139.8850779) ;; TDS
+   (coord/->Coord 35.6328964 139.8803943) ;; TDL
 ))
 
 
