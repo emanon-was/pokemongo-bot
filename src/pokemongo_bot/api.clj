@@ -47,12 +47,15 @@
 
 (defn catch-pokemon [cpk]
   (println (pokemon/pokemon-id cpk))
+  (Thread/sleep 1000)
   (.encounterPokemon cpk)
   (Thread/sleep 1000)
   (try
     (.catchPokemonWithBestBall cpk)
     (catch java.lang.NullPointerException e
-      (println "ポケモンを捕まえようとしたらぬるぽ"))))
+      (println "ポケモンを捕まえようとしたらぬるぽ"))
+    (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+      (println "ポケモンを捕まえようとしたら同期エラー"))))
 
 (defn start [account point]
   ;; update map

@@ -16,12 +16,38 @@
    16  ;; ポッポ
    19  ;; コラッタ
    21  ;; オニスズメ
+   23  ;; アーボ
+   25  ;; ピカチュウ
+   35  ;; ピッピ
+   37  ;; ロコン
+   39  ;; プリン
    41  ;; ズバット
+   43  ;; ナゾノクサ
+   46  ;; パラス
+   48  ;; コンパン
+   50  ;; ディグダ
+   52  ;; ニャース
+   56  ;; マンキー
    54  ;; コダック
+   69  ;; マダツボミ
+   72  ;; メノクラゲ
+   74  ;; イシツブテ
+   77  ;; ポニータ
+   79  ;; ヤドン
    81  ;; コイル
+   86  ;; パウワウ
+   88  ;; ベトベター
+   90  ;; シェルダー
+   96  ;; スリープ
    98  ;; クラブ
    100 ;; ビリリダマ
+   102 ;; タマタマ
+   104 ;; カラカラ
+   109 ;; ドガース
+   116 ;; タッツー
    118 ;; トサキント
+   138 ;; オムナイト
+   140 ;; カブト
    ])
 
 (defn- transfer-pokemon [pk]
@@ -30,12 +56,18 @@
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException e
       (println "ポケモンをアメに替えようとしたら同期エラー"))))
 
+(defn- evolve-pokemon [pk]
+  (try
+    (.evolve pk)
+    (catch com.pokegoapi.exceptions.AsyncPokemonGoException e
+      (println "ポケモンを進化させようとしたら同期エラー"))))
+
 (defn release-pokemon [pk]
   (if (and (some #(= % (:number (pokemon/pokemon-id pk))) evolves)
            (< 50 (-> (dosync @api/pokemon-inventory) .getCandyjar
                      (.getCandies (.getPokemonFamily pk)))))
     (do (Thread/sleep 1000)
-        (-> pk .evolve)
+        (evolve-pokemon pk)
         (Thread/sleep 1000)
         (transfer-pokemon pk))
     (do (Thread/sleep 1000)
