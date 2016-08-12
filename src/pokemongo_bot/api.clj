@@ -29,6 +29,7 @@
     (setq current-location latlong)
     latlong))
 
+
 (defn update-map []
   (try
     (let [current-map (.getMap @pokemon-client)]
@@ -45,10 +46,15 @@
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
       (println "インベントリを更新する際に同期エラー"))))
 
+(defn encount-pokemon [pk])
+
 (defn catch-pokemon [cpk]
   (println (pokemon/pokemon-id cpk))
   (Thread/sleep 1000)
-  (.encounterPokemon cpk)
+  (try
+    (.encounterPokemon cpk)
+    (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+      (println "ポケモンとエンカウントしようとしたら同期エラー")))
   (Thread/sleep 1000)
   (try
     (.catchPokemonWithBestBall cpk)
@@ -64,7 +70,7 @@
   (update-map)
   (update-inventory)
   (go-loop []
-    (<! (timeout 12000))
+    (<! (timeout 15000))
     (update-map)
     (recur))
   (go-loop []
@@ -72,7 +78,7 @@
     (update-inventory)
     (recur))
   (go-loop []
-    (<! (timeout 1000))
+    (<! (timeout 2000))
     (->> @pokemon-map
          .getCatchablePokemon
          (map catch-pokemon)
