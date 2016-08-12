@@ -1,4 +1,5 @@
 (ns pokemongo-bot.core
+  (:gen-class)
   (:use
    [clojure.core.async :only [go chan <! <!! >! >!! close! timeout go-loop]]
    [pokemongo-bot.authenticate :only [IAccount]]
@@ -66,11 +67,11 @@
   (if (and (some #(= % (:number (pokemon/pokemon-id pk))) evolves)
            (< 50 (-> (dosync @api/pokemon-inventory) .getCandyjar
                      (.getCandies (.getPokemonFamily pk)))))
-    (do (Thread/sleep 1000)
+    (do (Thread/sleep 5000)
         (evolve-pokemon pk)
-        (Thread/sleep 1000)
+        (Thread/sleep 5000)
         (transfer-pokemon pk))
-    (do (Thread/sleep 1000)
+    (do (Thread/sleep 5000)
         (transfer-pokemon pk))))
 
 (defn release-pokemons [attack defense stamina]
@@ -149,13 +150,16 @@
     (walk-around center)))
 
 (defn -main [& args]
-  (walking-dead
-   (auth/->GoogleAccount "Email" "Password")
-   ;; (coord/->Coord 35.65955 139.699068) ;; Shibuya 109
-   ;; (coord/->Coord 35.6267108 139.8850779) ;; TDS
-   (coord/->Coord 35.6328964 139.8803943) ;; TDL
-))
+  (let [email    (-> (System/console) (.readLine " Email: " nil) String/valueOf)
+        password (-> (System/console) (.readPassword " Password: " nil) String/valueOf)
+        latlong  (-> (System/console) (.readLine " Coord: " nil) String/valueOf)]
+    (walking-dead
+     (auth/->GoogleAccount email password)
+     (apply coord/->Coord (map read-string (clojure.string/split latlong #","))))))
 
+     ;;(coord/->Coord 35.6328964 139.8803943) ;; TDL
+     ;; (coord/->Coord 35.65955 139.699068) ;; Shibuya 109
+     ;; (coord/->Coord 35.6267108 139.8850779) ;; TDS
 
 
 

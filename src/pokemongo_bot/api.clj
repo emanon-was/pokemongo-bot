@@ -30,11 +30,11 @@
     latlong))
 
 
-(defn update-map []
+(defn update-map [current-map]
   (try
-    (let [current-map (.getMap @pokemon-client)]
-      (setq pokemon-map current-map)
-      (setq pokemon-points (.getMapObjects current-map)))
+      ;;(let [current-map (.getMap @pokemon-client)]
+      ;; (setq pokemon-map current-map)
+    (setq pokemon-points (.getMapObjects current-map))
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
       (println "マップ情報を更新する際に同期エラー"))))
 
@@ -44,44 +44,53 @@
       (.updateInventories inventory)
       (setq pokemon-inventory inventory))
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
-      (println "インベントリを更新する際に同期エラー"))))
+      (println "インベントリを更新する際に同期エラー"))
+    (catch java.util.ConcurrentModificationException cme
+      (println "インベントリを更新する際に非同期処理をしようとしてエラー"))))
 
 (defn encount-pokemon [pk])
 
 (defn catch-pokemon [cpk]
   (println (pokemon/pokemon-id cpk))
-  (Thread/sleep 1000)
   (try
     (.encounterPokemon cpk)
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
       (println "ポケモンとエンカウントしようとしたら同期エラー")))
-  (Thread/sleep 1000)
+  (Thread/sleep 2000)
   (try
     (.catchPokemonWithBestBall cpk)
     (catch java.lang.NullPointerException e
       (println "ポケモンを捕まえようとしたらぬるぽ"))
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
-      (println "ポケモンを捕まえようとしたら同期エラー"))))
+      (println "ポケモンを捕まえようとしたら同期エラー")))
+  (Thread/sleep 3000))
 
 (defn start [account point]
   ;; update map
   (client account)
   (location point)
-  (update-map)
+  (update-map (.getMap @pokemon-client))
   (update-inventory)
   (go-loop []
-    (<! (timeout 15000))
-    (update-map)
+    (<! (timeout (* 900 1000)))
+    (client account)
+    (location @current-location)
     (recur))
+  ;; (go-loop []
+  ;;   (<! (timeout (* 11 1000)))
+  ;;   (update-map)
+  ;;   (recur))
   (go-loop []
-    (<! (timeout 90000))
+    (<! (timeout (* 90 1000)))
     (update-inventory)
     (recur))
   (go-loop []
-    (<! (timeout 2000))
-    (->> @pokemon-map
-         .getCatchablePokemon
-         (map catch-pokemon)
-         doall)
+    (<! (timeout (* 10 1000)))
+    (let [current-map (.getMap @pokemon-client)]
+      (update-map current-map)
+      (->> current-map .getCatchablePokemon
+           (map catch-pokemon)
+           doall))
     (recur)))
+
 
