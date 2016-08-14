@@ -1,11 +1,15 @@
 (ns pokemongo-bot.core
   (:gen-class)
+  (:import
+   [com.pokegoapi.util Log Log$Level])
   (:require
    [pokemongo-bot.authenticate :as auth]
    [pokemongo-bot.coordinate   :as coord]
    [pokemongo-bot.pokemon      :as pokemon]
    [pokemongo-bot.item         :as item]
    [pokemongo-bot.api          :as api]))
+
+(Log/setLevel Log$Level/INFO)
 
 (def item-limits
   {1 300  ;; ITEM_POKE_BALL
@@ -16,6 +20,7 @@
    103 0  ;; ITEM_HYPER_POTION
    104 30 ;; ITEM_MAX_POTION
    201 15 ;; ITEM_REVIVE
+   202 15 ;; ITEM_REVIVE
    })
 
 (defn remove-item-set [i]
@@ -38,9 +43,7 @@
                       .getCandyjar
                       (.getCandies (.getPokemonFamily pk)))))
     (do (Thread/sleep 3000)
-        (api/evolve-pokemon pk)
-        (Thread/sleep 3000)
-        (api/transfer-pokemon pk))
+        (api/evolve-pokemon pk))
     (do (Thread/sleep 3000)
         (api/transfer-pokemon pk))))
 
@@ -82,10 +85,10 @@
   (->> (api/catchable-pokemons)
        (map api/catch-pokemon)
        doall)
-  (if (priority-loot)
-    (->> (api/lootable-pokestops)
-         (map api/loot-pokestop)
-         doall)))
+;;  (if (priority-loot)
+  (->> (api/lootable-pokestops)
+       (map api/loot-pokestop)
+       doall))
 
 (defn walking [spot cooltime]
   (let [current (api/current-location)]
@@ -105,16 +108,17 @@
     (remove-items)
     (let [next (next-spot center routes)]
       (if next
-        (do (println (str "Next -> " (coord/coord-format next)))
-            (println (str "Dist -> "
+        (do (println (str "次のポケストップ : " (coord/coord-format next)))
+            (println (str "次のポケストップまでの距離 : "
                           (coord/distance (api/current-location) next)
-                          " Meter"))
+                          " メートル"))
             (walking next 1)
             (api/loot-pokestop next)
+            (println "ポケストップに到着")
             (recur (spot-pool next routes)))
         (do
           (Thread/sleep 20000)
-          (println (str "Not Found PokeStops."))
+          (println (str "ポケストップが見つからない"))
           (recur routes))))))
 
 (defn walking-start [account center]

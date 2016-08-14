@@ -2,7 +2,10 @@
   (:import
    [com.pokegoapi.api.map.pokemon CatchablePokemon]
    [com.pokegoapi.api.pokemon Pokemon]
-   [POGOProtos.Enums PokemonIdOuterClass$PokemonId]))
+   [POGOProtos.Enums PokemonIdOuterClass$PokemonId]
+   [com.pokegoapi.api.map.pokemon CatchResult]
+   [POGOProtos.Networking.Responses
+    CatchPokemonResponseOuterClass$CatchPokemonResponse$CatchStatus]))
 
 (def ^:dynamic *pokemons*
   {1 "フシギダネ"
@@ -227,3 +230,22 @@
      :individual-attack (.getIndividualAttack pk)
      :individual-defense (.getIndividualDefense pk)
      :individual-stamina (.getIndividualStamina pk)}))
+
+(def catch-result-status
+  {0 "を捕まえようとしたけどエラー！(捕まえようとしたボールが足りない？)"
+   1 "を捕まえた！"
+   2 "がボールから出た！"
+   3 "が逃げ出した！"
+   4 "にボールが当たらなかった！"})
+
+(defprotocol CatchResultStatus
+  (result-format [_]))
+
+(extend-protocol CatchResultStatus
+  CatchPokemonResponseOuterClass$CatchPokemonResponse$CatchStatus
+  (result-format [_]
+    (let [descriptor (.getValueDescriptor _)]
+      (catch-result-status (.getNumber descriptor))))
+  CatchResult
+  (result-format [_]
+    (-> _ .getStatus result-format)))

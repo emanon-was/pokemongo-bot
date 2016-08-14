@@ -59,18 +59,19 @@
       (println "ポケモンを進化させようとしたら同期処理エラー"))))
 
 (defn catch-pokemon [cpk]
-  (println "Find -> " (str (pokemon/pokemon-id cpk)))
-  (Thread/sleep 1000)
-  (let [encount (try (if (.encounterPokemon cpk) true false)
+  (let [pokemon-name (-> cpk pokemon/pokemon-id :jname)]
+    (print (str pokemon-name "を発見した！"))
+    (Thread/sleep 5000)
+    (let [encount (try (if (.encounterPokemon cpk) true false)
                      (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
                        (println "ポケモンとエンカウントしようとしたら同期処理エラー")))]
-    (Thread/sleep 1000)
+    (Thread/sleep 5000)
     (try (let [result (.catchPokemon cpk)]
-           (println result))
+           (println (str pokemon-name (pokemon/result-format result))))
          (catch java.lang.NullPointerException e
            (println "ポケモンを捕まえようとしたら結果が空でパース出来ずエラー"))
          (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
-           (println "ポケモンを捕まえようとしたら同期処理エラー")))))
+           (println "ポケモンを捕まえようとしたら同期処理エラー"))))))
 
 (defn pokemon-map []
   (-> @pokemon-client .getMap))

@@ -42,18 +42,18 @@
   PokemonGo
   (coord [pg] (coord (Coord. (.getLatitude pg) (.getLongitude pg))))
   (distance [pg p1] (distance (coord pg) (coord p1)))
-  (coord-format [pg] (str "Current: " (coord-format (coord pg))))
+  (coord-format [pg] (coord-format (coord pg)))
 
   SpawnPointOuterClass$SpawnPoint
   (coord [sp] (coord (Coord. (.getLatitude sp) (.getLongitude sp))))
   (distance [sp p1] (distance (coord sp) (coord p1)))
-  (coord-format [sp] (str "SpawnPoint: " (coord-format (coord sp))))
+  (coord-format [sp] (coord-format (coord sp)))
 
   Pokestop
   (coord [pks] (coord (Coord. (-> pks .getFortData .getLatitude)
                               (-> pks .getFortData .getLongitude))))
   (distance [pks p1] (distance (coord pks) (coord p1)))
-  (coord-format [sp] (str "PokeStop: " (coord-format (coord sp)))))
+  (coord-format [sp] (coord-format (coord sp))))
 
 (defn route [start end km-h cooltime]
   (let [m-s (-> km-h (* 1000) (/ 3600))
