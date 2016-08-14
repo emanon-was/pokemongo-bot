@@ -1,96 +1,110 @@
 (ns pokemongo-bot.api
-  (:use [clojure.core.async :only [go chan <! <!! >! >!! close! timeout go-loop]])
+  (:use [clojure.core.async :only [go go-loop chan timeout <! <!! >! >!! close!]])
   (:require
    [pokemongo-bot.authenticate :as auth]
    [pokemongo-bot.coordinate   :as coord]
-   [pokemongo-bot.pokemon      :as pokemon])
+   [pokemongo-bot.pokemon      :as pokemon]
+   [pokemongo-bot.item         :as item])
   (:import
    [okhttp3 OkHttpClient]
    [com.pokegoapi.api PokemonGo]))
 
-(def pokemon-client    (ref nil))
-(def current-location  (ref nil))
-(def pokemon-map       (ref nil))
-(def pokemon-points    (ref nil))
-(def pokemon-inventory (ref nil))
-
-(defmacro setq [sym val]
-  `(dosync (ref-set ~sym ~val)))
+(def pokemon-client (ref nil))
 
 (defn client [account]
   (let [http-client (OkHttpClient.)
         api-client  (PokemonGo. (auth/login account http-client) http-client)]
-    (setq pokemon-client api-client)
+    (dosync (ref-set pokemon-client api-client))
     api-client))
 
 (defn location [point]
   (let [latlong (coord/coord point)]
     (-> @pokemon-client (.setLocation (:latitude  latlong) (:longitude latlong) 1))
-    (setq current-location latlong)
     latlong))
 
+(defn current-location []
+  (coord/coord @pokemon-client))
 
-(defn update-map [current-map]
-  (try
-      ;;(let [current-map (.getMap @pokemon-client)]
-      ;; (setq pokemon-map current-map)
-    (setq pokemon-points (.getMapObjects current-map))
-    (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
-      (println "マップ情報を更新する際に同期エラー"))))
+(defn inventories []
+  (.getInventories @pokemon-client))
+
+(defn inventory-items []
+  (try (->> (inventories) .getItemBag .getItems)
+       (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+         (println "アイテムバッグを参照する際の同期処理エラー"))))
+
+(defn remove-item [item count]
+  (try (-> (inventories) .getItemBag (.removeItem (.getItemId item) count))
+       (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+         (println "アイテムを捨てる際の同期処理エラー"))))
 
 (defn update-inventory []
   (try
-    (let [inventory (or @pokemon-inventory (.getInventories @pokemon-client))]
-      (.updateInventories inventory)
-      (setq pokemon-inventory inventory))
+    (-> (inventories) .updateInventories)
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
-      (println "インベントリを更新する際に同期エラー"))
+      (println "インベントリを更新する際の同期処理エラー"))
     (catch java.util.ConcurrentModificationException cme
-      (println "インベントリを更新する際に非同期処理をしようとしてエラー"))))
+      (println "インベントリを更新する際に同期処理をしようとしてエラー"))))
 
-(defn encount-pokemon [pk])
+(defn transfer-pokemon [pk]
+  (try
+    (.transferPokemon pk)
+    (catch com.pokegoapi.exceptions.AsyncPokemonGoException e
+      (println "ポケモンをアメに替えようとしたら同期処理エラー"))))
+
+(defn evolve-pokemon [pk]
+  (try
+    (.evolve pk)
+    (catch com.pokegoapi.exceptions.AsyncPokemonGoException e
+      (println "ポケモンを進化させようとしたら同期処理エラー"))))
 
 (defn catch-pokemon [cpk]
-  (println (pokemon/pokemon-id cpk))
-  (try
-    (.encounterPokemon cpk)
-    (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
-      (println "ポケモンとエンカウントしようとしたら同期エラー")))
-  (Thread/sleep 2000)
-  (try
-    (.catchPokemonWithBestBall cpk)
-    (catch java.lang.NullPointerException e
-      (println "ポケモンを捕まえようとしたらぬるぽ"))
-    (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
-      (println "ポケモンを捕まえようとしたら同期エラー")))
-  (Thread/sleep 3000))
+  (println "Find -> " (str (pokemon/pokemon-id cpk)))
+  (Thread/sleep 1000)
+  (let [encount (try (if (.encounterPokemon cpk) true false)
+                     (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+                       (println "ポケモンとエンカウントしようとしたら同期処理エラー")))]
+    (Thread/sleep 1000)
+    (try (let [result (.catchPokemon cpk)]
+           (println result))
+         (catch java.lang.NullPointerException e
+           (println "ポケモンを捕まえようとしたら結果が空でパース出来ずエラー"))
+         (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+           (println "ポケモンを捕まえようとしたら同期処理エラー")))))
 
-(defn start [account point]
-  ;; update map
+(defn pokemon-map []
+  (-> @pokemon-client .getMap))
+
+(defn pokemon-spots []
+  (try (-> (pokemon-map) .getMapObjects)
+       (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+         (println "マップ情報を取得しようとして同期処理エラー"))))
+
+(defn catchable-pokemons []
+  (try (-> (pokemon-map) .getCatchablePokemon)
+       (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
+         (println "捕獲可能なポケモンを取得しようとして同期処理エラー"))))
+
+(defn search-pokestops []
+  (or (-> (pokemon-spots) .getPokestops) []))
+
+(defn lootable-pokestops []
+  (->> (search-pokestops)
+       (filter #(.canLoot %))))
+
+(defn loot-pokestop [pokestop]
+  (try
+    (.loot pokestop)
+    (catch com.pokegoapi.exceptions.AsyncPokemonGoException e
+      (println "ポケストップから戦利品を取得しようとして同期処理エラー"))))
+
+
+(defn start [account coord]
   (client account)
-  (location point)
-  (update-map (.getMap @pokemon-client))
-  (update-inventory)
+  (location coord)
   (go-loop []
-    (<! (timeout (* 900 1000)))
-    (client account)
-    (location @current-location)
-    (recur))
-  ;; (go-loop []
-  ;;   (<! (timeout (* 11 1000)))
-  ;;   (update-map)
-  ;;   (recur))
-  (go-loop []
-    (<! (timeout (* 90 1000)))
-    (update-inventory)
-    (recur))
-  (go-loop []
-    (<! (timeout (* 10 1000)))
-    (let [current-map (.getMap @pokemon-client)]
-      (update-map current-map)
-      (->> current-map .getCatchablePokemon
-           (map catch-pokemon)
-           doall))
+    (<! (timeout (* 1800 1000)))
+    (let [current (current-location)]
+      (client account)
+      (location current))
     (recur)))
-
-
