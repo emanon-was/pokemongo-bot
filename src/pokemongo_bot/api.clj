@@ -58,6 +58,19 @@
     (catch com.pokegoapi.exceptions.AsyncPokemonGoException e
       (println "ポケモンを進化させようとしたら同期処理エラー"))))
 
+
+(defn pokeballs []
+  (->> (inventory-items)
+       (map item/status)
+       (filter #(some (fn [_] (= _ (-> % :item-id :number))) [1 2 3 4]))))
+
+(defn bestball []
+  (let [balls (pokeballs)]
+    (cond (->> balls (some #(and (= 2  (-> % :item-id :number)) (< 20 (-> % :count)))))
+          com.pokegoapi.api.inventory.Pokeball/GREATBALL
+          (->> balls (some #(and (= 3  (-> % :item-id :number)) (< 20 (-> % :count)))))
+          com.pokegoapi.api.inventory.Pokeball/ULTRABALL)))
+
 (defn catch-pokemon [cpk]
   (let [pokemon-name (-> cpk pokemon/pokemon-id :jname)]
     (print (str pokemon-name "を発見した！"))
@@ -65,8 +78,11 @@
     (let [encount (try (if (.encounterPokemon cpk) true false)
                      (catch com.pokegoapi.exceptions.AsyncPokemonGoException pge
                        (println "ポケモンとエンカウントしようとしたら同期処理エラー")))]
-    (Thread/sleep 5000)
-    (try (let [result (.catchPokemon cpk)]
+    (Thread/sleep 10000)
+    (try (let [select-ball (bestball)
+               result (if select-ball
+                        (.catchPokemon cpk select-ball)
+                        (.catchPokemon cpk))]
            (println (str pokemon-name (pokemon/result-format result))))
          (catch java.lang.NullPointerException e
            (println "ポケモンを捕まえようとしたら結果が空でパース出来ずエラー"))
@@ -87,7 +103,8 @@
          (println "捕獲可能なポケモンを取得しようとして同期処理エラー"))))
 
 (defn search-pokestops []
-  (or (-> (pokemon-spots) .getPokestops) []))
+  (try (or (-> (pokemon-spots) .getPokestops) [])
+       (catch java.lang.NullPointerException e [])))
 
 (defn lootable-pokestops []
   (->> (search-pokestops)

@@ -75,17 +75,18 @@
         (second spots)
         best))))
 
-(defn priority-loot []
+(defn enough-ball? []
   (->> (api/inventory-items)
        (map item/status)
-       (some #(or (and (= 1  (-> % :item-id :number))
-                       (> 80 (-> % :count)))))))
+       (some #(or (and (= 1 (-> % :item-id :number)) (< 20 (-> % :count)))
+                  (and (= 2 (-> % :item-id :number)) (< 20 (-> % :count)))
+                  (and (= 3 (-> % :item-id :number)) (< 20 (-> % :count)))))))
 
 (defn play-game []
-  (->> (api/catchable-pokemons)
-       (map api/catch-pokemon)
-       doall)
-;;  (if (priority-loot)
+  (if (enough-ball?)
+    (->> (api/catchable-pokemons)
+         (map api/catch-pokemon)
+         doall))
   (->> (api/lootable-pokestops)
        (map api/loot-pokestop)
        doall))
